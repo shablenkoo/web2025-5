@@ -2,6 +2,7 @@ const http = require('http');
 const { Command } = require('commander');
 const fs = require('fs').promises;
 const path = require('path');
+const superagent = require('superagent'); 
 
 const program = new Command();
 
@@ -14,7 +15,7 @@ program.parse(process.argv);
 const options = program.opts();
 
 const server = http.createServer(async (req, res) => {
-  const code = req.url.slice(1); 
+  const code = req.url.slice(1);
   const filePath = path.join(options.cache, `${code}.jpg`);
 
   if (!/^\d{3}$/.test(code)) {
@@ -29,8 +30,15 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'image/jpeg' });
         res.end(image);
       } catch (err) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Картинка не знайдена');
+        try {
+          const response = await superagent.get(`https://http.cat/${code}`);
+          await fs.writeFile(filePath, response.body);
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+          res.end(response.body);
+        } catch (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Картинка не знайдена');
+        }
       }
       break;
 
@@ -69,5 +77,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(options.port, options.host, () => {
   console.log(`Сервер запущено на http://${options.host}:${options.port}`);
 });
-
 
